@@ -8,6 +8,7 @@
 import Foundation
 import SwiftTerm
 import SwiftUI
+import CoreText
 
 fileprivate extension View {
 	static func + (lhs: Self, rhs: some View) -> AnyView {
@@ -106,6 +107,20 @@ open class StringSupplier {
 
 		let width = CGFloat(run.unicodeScalars.reduce(0, { $0 + UnicodeUtil.columnWidth(rune: $1) })) * (fontMetrics?.width ?? 0)
 
+		// SwiftUI's .frame(width:) constrains layout space but doesn't stretch the glyph itself to
+		// fill it. Wide (e.g. CJK) glyphs drawn via system font fallback render narrower than their
+		// allocated cell width, leaving a visible gap around every character. Measure the run's
+		// natural width with the resolved font and horizontally scale it to fill the cell exactly.
+		var scaleX: CGFloat = 1
+		if let resolvedFont = font, !run.isEmpty, width > 0 {
+			let attributedString = NSAttributedString(string: run, attributes: [.font: resolvedFont])
+			let line = CTLineCreateWithAttributedString(attributedString)
+			let naturalWidth = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+			if naturalWidth > 0 {
+				scaleX = width / naturalWidth
+			}
+		}
+
 		return AnyView(
 			Text(run)
 				// Text attributes
@@ -118,7 +133,9 @@ open class StringSupplier {
 				.allowsTightening(false)
 				.lineLimit(1)
 				.background(Color(background ?? .black))
-				.frame(width: width)
+				.frame(width: scaleX != 0 ? width / scaleX : width, alignment: .leading)
+				.scaleEffect(x: scaleX, y: 1, anchor: .leading)
+				.frame(width: width, alignment: .leading)
 				.fixedSize(horizontal: false, vertical: true)
 		)
 	}

@@ -144,6 +144,7 @@ open class StringSupplier {
 				.scaleEffect(x: scaleX, y: 1, anchor: .leading)
 				.frame(width: width, alignment: .leading)
 				.fixedSize(horizontal: false, vertical: true)
+				.border(Color.red, width: 1) // DEBUG: visualize per-run cell boundary
 		)
 	}
 

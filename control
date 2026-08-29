@@ -5,7 +5,7 @@ Recommends: gettext-localizations, iterm2-shell-integration, zsh-autosuggestions
 Conflicts: ws.hbang.newterm, ws.hbang.newterm2
 Replaces: ws.hbang.newterm, ws.hbang.newterm2
 Version: 3.0~beta1
-Architecture: iphoneos-arm
+Architecture: iphoneos-arm64
 Description: Powerful terminal app for iOS
 Maintainer: HASHBANG Productions <support@hbang.ws>
 Author: HASHBANG Productions <support@hbang.ws>

@@ -19,7 +19,7 @@ jobs:
     runs-on: macos-15
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Set up Procursus
       uses: beerpiss/procursus-action@v2
       with:
@@ -34,7 +34,7 @@ jobs:
         gmake package THEOS=~/theos
         echo "package=$(cat .theos/last_package)" >> $GITHUB_OUTPUT
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: NewTerm3
         path: '${{ steps.package_build.outputs.package }}'

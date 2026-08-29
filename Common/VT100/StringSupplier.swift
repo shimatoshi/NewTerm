@@ -8,11 +8,65 @@
 import Foundation
 import SwiftTerm
 import SwiftUI
-import CoreText
 
 fileprivate extension View {
 	static func + (lhs: Self, rhs: some View) -> AnyView {
 		AnyView(ViewBuilder.buildBlock(lhs, AnyView(rhs)))
+	}
+}
+
+// Reports the width SwiftUI actually laid the text out at, as measured by the layout system
+// itself. CoreText metrics (CTLineGetTypographicBounds) don't reliably predict how wide a Text
+// view ends up on screen once font fallback/cascading kicks in for CJK glyphs, which is why a
+// scale factor derived from CoreText alone left a stray gap next to every wide character. Measuring
+// the real, rendered width sidesteps that mismatch entirely.
+fileprivate struct RunWidthKey: PreferenceKey {
+	static var defaultValue: CGFloat = 0
+	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+		value = nextValue()
+	}
+}
+
+fileprivate struct ScaledCellText: View {
+	let run: String
+	let font: UIFont?
+	let foreground: UIColor?
+	let background: UIColor?
+	let underline: Bool
+	let strikethrough: Bool
+	let targetWidth: CGFloat
+
+	@State private var measuredWidth: CGFloat?
+
+	var body: some View {
+		let scaleX: CGFloat = {
+			guard let measuredWidth = measuredWidth, measuredWidth > 0 else { return 1 }
+			return targetWidth / measuredWidth
+		}()
+
+		Text(run)
+			.foregroundColor(Color(foreground ?? .white))
+			.font(Font(font ?? .monospacedSystemFont(ofSize: 12, weight: .regular)))
+			.underline(underline)
+			.strikethrough(strikethrough)
+			.tracking(0)
+			.allowsTightening(false)
+			.lineLimit(1)
+			.fixedSize()
+			.background(
+				GeometryReader { geometry in
+					Color.clear
+						.preference(key: RunWidthKey.self, value: geometry.size.width)
+				}
+			)
+			.onPreferenceChange(RunWidthKey.self) { width in
+				if width > 0 && width != measuredWidth {
+					measuredWidth = width
+				}
+			}
+			.scaleEffect(x: scaleX, y: 1, anchor: .leading)
+			.frame(width: targetWidth, alignment: .leading)
+			.background(Color(background ?? .black))
 	}
 }
 
@@ -114,36 +168,14 @@ open class StringSupplier {
 
 		let width = CGFloat(run.unicodeScalars.reduce(0, { $0 + UnicodeUtil.columnWidth(rune: $1) })) * (fontMetrics?.width ?? 0)
 
-		// SwiftUI's .frame(width:) constrains layout space but doesn't stretch the glyph itself to
-		// fill it. Wide (e.g. CJK) glyphs drawn via system font fallback render narrower than their
-		// allocated cell width, leaving a visible gap around every character. Measure the run's
-		// natural width with the resolved font and horizontally scale it to fill the cell exactly.
-		var scaleX: CGFloat = 1
-		if let resolvedFont = font, !run.isEmpty, width > 0 {
-			let attributedString = NSAttributedString(string: run, attributes: [.font: resolvedFont])
-			let line = CTLineCreateWithAttributedString(attributedString)
-			let naturalWidth = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
-			if naturalWidth > 0 {
-				scaleX = width / naturalWidth
-			}
-		}
-
 		return AnyView(
-			Text(run)
-				// Text attributes
-				.foregroundColor(Color(foreground ?? .white))
-				.font(Font(font ?? .monospacedSystemFont(ofSize: 12, weight: .regular)))
-				.underline(attribute.style.contains(.underline))
-				.strikethrough(attribute.style.contains(.crossedOut))
-				.tracking(0)
-				// View attributes
-				.allowsTightening(false)
-				.lineLimit(1)
-				.background(Color(background ?? .black))
-				.frame(width: scaleX != 0 ? width / scaleX : width, alignment: .leading)
-				.scaleEffect(x: scaleX, y: 1, anchor: .leading)
-				.frame(width: width, alignment: .leading)
-				.fixedSize(horizontal: false, vertical: true)
+			ScaledCellText(run: run,
+										 font: font,
+										 foreground: foreground,
+										 background: background,
+										 underline: attribute.style.contains(.underline),
+										 strikethrough: attribute.style.contains(.crossedOut),
+										 targetWidth: width)
 		)
 	}
 

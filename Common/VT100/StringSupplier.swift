@@ -40,7 +40,8 @@ open class StringSupplier {
 		var lastAttribute = Attribute.empty
 		var views = [AnyView]()
 		var buffer = ""
-		for j in 0..<terminal.cols {
+		var j = 0
+		while j < terminal.cols {
 			let data = line[j]
 			let isCursor = cursorVisible && row - scrollbackRows == cursorPosition.y && j == cursorPosition.x
 
@@ -64,6 +65,12 @@ open class StringSupplier {
 				views.append(text(buffer, attribute: lastAttribute, isCursor: true))
 				buffer.removeAll()
 			}
+
+			// Full-width (e.g. CJK) characters reserve a second, empty placeholder cell in the
+			// terminal buffer to hold their extra column. That placeholder carries no glyph of its
+			// own — rendering it as a separate character adds a stray blank cell after every wide
+			// character, which is what produced the "gap between every character" spacing bug.
+			j += data.width == 2 ? 2 : 1
 		}
 
 		// Append the final run

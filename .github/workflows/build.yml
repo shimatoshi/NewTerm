@@ -31,7 +31,7 @@ jobs:
     - name: Compile
       id: package_build
       run: |
-        gmake package THEOS=~/theos
+        gmake package THEOS=~/theos THEOS_PACKAGE_SCHEME=rootless
         echo "package=$(cat .theos/last_package)" >> $GITHUB_OUTPUT
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4

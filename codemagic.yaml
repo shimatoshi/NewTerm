@@ -1,0 +1,32 @@
+workflows:
+  build-newterm:
+    name: Build NewTerm (jp-cjk-width-fix)
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    scripts:
+      - name: Set up Procursus
+        script: |
+          set -e
+          curl -L https://apt.procurs.us/bootstraps/big_sur/bootstrap-darwin-arm64.tar.zst | zstdcat - | sudo tar -xpkf - -C / || true
+          echo "export PATH=\"\$PATH:/opt/procursus/games:/opt/procursus/sbin:/opt/procursus/bin:/opt/procursus/local/sbin:/opt/procursus/local/bin\"" >> $CM_ENV
+          source $CM_ENV
+          if ! id _apt &>/dev/null; then
+            sudo dscl . -create /Users/_apt UserShell /usr/bin/false
+            sudo dscl . -create /Users/_apt NSFHomeDirectory /var/empty
+            sudo dscl . -create /Users/_apt PrimaryGroupID -1
+            sudo dscl . -create /Users/_apt UniqueID 400
+            sudo dscl . -create /Users/_apt RealName "APT Sandbox User"
+          fi
+          printf 'Types: deb\nURIs: https://apt.procurs.us\nSuites: big_sur\nComponents: main\n' | sudo tee /opt/procursus/etc/apt/sources.list.d/procursus.sources
+          sudo apt-get -y update
+          sudo apt-get install -y -o Dpkg::Options::="--force-confnew" ldid xz-utils cmark make
+      - name: Set up Theos
+        script: |
+          git clone --recursive --depth=1 https://github.com/theos/theos.git $HOME/theos
+      - name: Compile
+        script: |
+          source $CM_ENV
+          gmake package THEOS=$HOME/theos
+    artifacts:
+      - packages/*.deb
+      - .theos/**/*.deb

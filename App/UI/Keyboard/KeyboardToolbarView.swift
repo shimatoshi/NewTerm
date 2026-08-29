@@ -322,7 +322,7 @@ struct KeyboardToolbarView: View {
 		ZStack(alignment: .bottom) {
 			Color.black
 				.frame(height: 0)
-				.captureSize(in: $outerSize)
+				._measureAndRecordSize(into: $outerSize)
 
 			VStack(spacing: 0) {
 				ForEach(toolbars, id: \.self) { toolbar in
